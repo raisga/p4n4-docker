@@ -14,7 +14,10 @@ The MING stack (MQTT, InfluxDB, Node-RED, Grafana) is a proven open-source found
   - [Gen AI Layer](#gen-ai-layer)
 - [Prerequisites](#prerequisites)
 - [Getting Started](#getting-started)
+- [Project Structure](#project-structure)
+- [Usage](#usage)
 - [Default Ports](#default-ports)
+- [Default Credentials](#default-credentials)
 - [Resources](#resources)
 - [License](#license)
 
@@ -114,6 +117,116 @@ The MING stack (MQTT, InfluxDB, Node-RED, Grafana) is a proven open-source found
    - n8n: <http://localhost:5678>
    - InfluxDB: <http://localhost:8086>
 
+6. **(Optional) Pull an Ollama model**
+
+   ```bash
+   make ollama-pull
+   # Or manually: docker compose exec ollama ollama pull llama3.2
+   ```
+
+---
+
+## Project Structure
+
+```
+ming-wei/
+├── docker-compose.yml          # Main orchestration file for all services
+├── Dockerfile                  # Edge Impulse inference runner image
+├── Makefile                    # Convenience commands (make up, make down, etc.)
+├── .env.example                # Environment template (copy to .env)
+├── .gitignore                  # Git ignore rules
+├── config/
+│   ├── mosquitto/
+│   │   └── mosquitto.conf      # MQTT broker configuration
+│   ├── node-red/
+│   │   ├── settings.js         # Node-RED runtime settings
+│   │   └── flows.json          # Sample MQTT-to-InfluxDB flow
+│   └── grafana/
+│       └── provisioning/
+│           ├── datasources/
+│           │   └── datasources.yml   # Auto-configure InfluxDB datasource
+│           └── dashboards/
+│               ├── dashboards.yml    # Dashboard provisioning config
+│               └── json/
+│                   └── iot-overview.json  # Sample IoT dashboard
+├── scripts/
+│   └── inference.py            # Edge Impulse inference script with MQTT
+├── LICENSE
+└── README.md
+```
+
+---
+
+## Usage
+
+### Using Make Commands
+
+```bash
+make help           # Show all available commands
+
+make up             # Start the full stack
+make down           # Stop all services
+make restart        # Restart all services
+make logs           # Follow logs from all services
+make ps             # Show service status
+
+make up-edge        # Start only Edge AI layer (MQTT, InfluxDB, Node-RED, Grafana)
+make up-genai       # Start only Gen AI layer (n8n, Ollama, Letta, Kokoro)
+
+make test-mqtt      # Publish test messages to MQTT
+make ollama-pull    # Pull llama3.2 model into Ollama
+make clean          # Stop services and remove all data volumes
+```
+
+### Testing the Data Pipeline
+
+1. Start the stack: `make up`
+2. Open Node-RED: <http://localhost:1880>
+3. Deploy the sample flow (it auto-loads from `flows.json`)
+4. Publish test data:
+
+   ```bash
+   make test-mqtt
+   ```
+
+5. Open Grafana: <http://localhost:3000> and view the "IoT Overview" dashboard
+
+### Running Edge Impulse Inference
+
+Build and run the inference container (demo mode without a real model):
+
+```bash
+make build
+make run-inference
+```
+
+For real inference with a trained model:
+
+```bash
+docker run --rm -it --network ming-network \
+  --device /dev/video0 \
+  -v /path/to/model.eim:/app/model/model.eim \
+  -e EI_MODEL_PATH=/app/model/model.eim \
+  -e MQTT_BROKER=ming-mqtt \
+  ming-edge-impulse
+```
+
+### GPU Support for Ollama
+
+To enable NVIDIA GPU acceleration, edit `docker-compose.yml` and uncomment the `deploy` section under the `ollama` service:
+
+```yaml
+ollama:
+  # ...
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+```
+
 ---
 
 ## Default Ports
@@ -128,6 +241,20 @@ The MING stack (MQTT, InfluxDB, Node-RED, Grafana) is a proven open-source found
 | Letta            | `8283`                            |
 | Ollama           | `11434`                           |
 | Kokoro           | `8880`                            |
+
+---
+
+## Default Credentials
+
+All credentials can be customized in `.env`. Defaults (from `.env.example`):
+
+| Service  | Username | Password        |
+|----------|----------|-----------------|
+| InfluxDB | `admin`  | `adminpassword` |
+| Grafana  | `admin`  | `adminpassword` |
+| n8n      | `admin`  | `adminpassword` |
+
+**Note:** Change these before deploying to production!
 
 ---
 

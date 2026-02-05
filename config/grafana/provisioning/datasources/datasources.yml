@@ -1,0 +1,21 @@
+# ==============================================================================
+# Grafana Datasources Provisioning
+# ==============================================================================
+
+apiVersion: 1
+
+datasources:
+  # InfluxDB 2.x datasource
+  - name: InfluxDB
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: ming
+      defaultBucket: iot
+      tlsSkipVerify: true
+    secureJsonData:
+      token: ming-stack-token
+    isDefault: true
+    editable: true

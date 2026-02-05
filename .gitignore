@@ -1,0 +1,43 @@
+# ==============================================================================
+# MING Stack .gitignore
+# ==============================================================================
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env.*.local
+
+# Docker volumes (if mounted locally)
+data/
+
+# Node-RED
+config/node-red/flows*.json
+config/node-red/flows*.json.backup
+config/node-red/.config*
+config/node-red/lib/
+config/node-red/node_modules/
+config/node-red/package-lock.json
+
+# Grafana
+config/grafana/grafana.db
+config/grafana/grafana.db-journal
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
