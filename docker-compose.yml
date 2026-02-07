@@ -18,6 +18,12 @@ services:
       - ./config/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto-data:/mosquitto/data
       - mosquitto-log:/mosquitto/log
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -t '$$SYS/broker/uptime' -C 1 -W 3"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       - ming-network
 
@@ -37,9 +43,17 @@ services:
       DOCKER_INFLUXDB_INIT_ORG: ${INFLUXDB_ORG:-ming}
       DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUXDB_BUCKET:-iot}
       DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_TOKEN:-ming-stack-token}
+      INFLUXDB_SANDBOX_BUCKET: ${INFLUXDB_SANDBOX_BUCKET:-sandbox}
     volumes:
       - influxdb-data:/var/lib/influxdb2
       - influxdb-config:/etc/influxdb2
+      - ./scripts/init-sandbox.sh:/docker-entrypoint-initdb.d/init-sandbox.sh:ro
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     networks:
       - ming-network
 
@@ -54,12 +68,23 @@ services:
       - "1880:1880"
     environment:
       TZ: ${TZ:-UTC}
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN:-ming-stack-token}
+      INFLUXDB_ORG: ${INFLUXDB_ORG:-ming}
     volumes:
       - node-red-data:/data
       - ./config/node-red/settings.js:/data/settings.js:ro
+      - ./config/node-red/flows.json:/data/flows.json
     depends_on:
-      - mqtt
-      - influxdb
+      mqtt:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:1880',r=>{r.statusCode===200?process.exit(0):process.exit(1)}).on('error',()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     networks:
       - ming-network
 
@@ -80,7 +105,14 @@ services:
       - grafana-data:/var/lib/grafana
       - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
-      - influxdb
+      influxdb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     networks:
       - ming-network
 
@@ -109,8 +141,16 @@ services:
     volumes:
       - n8n-data:/home/node/.n8n
     depends_on:
-      - mqtt
-      - ollama
+      mqtt:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:5678/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     networks:
       - ming-network
 
@@ -131,7 +171,14 @@ services:
     volumes:
       - letta-data:/root/.letta
     depends_on:
-      - ollama
+      ollama:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8283/v1/health')\" 2>/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - ming-network
 
@@ -148,6 +195,12 @@ services:
       OLLAMA_HOST: 0.0.0.0
     volumes:
       - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list > /dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
     networks:
       - ming-network
     # Uncomment for NVIDIA GPU support:
@@ -173,6 +226,12 @@ services:
       KOKORO_PORT: 8880
     volumes:
       - kokoro-data:/app/voices
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8880/')\" 2>/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - ming-network
 
@@ -181,6 +240,7 @@ services:
 # ====================================================================================
 networks:
   ming-network:
+    name: ming-network
     driver: bridge
 
 # ====================================================================================

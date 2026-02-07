@@ -11,8 +11,8 @@
 data/
 
 # Node-RED
-config/node-red/flows*.json
-config/node-red/flows*.json.backup
+config/node-red/flows_cred.json
+config/node-red/*.backup
 config/node-red/.config*
 config/node-red/lib/
 config/node-red/node_modules/
@@ -41,3 +41,6 @@ logs/
 tmp/
 temp/
 *.tmp
+
+# SEDA agents
+.agents/
